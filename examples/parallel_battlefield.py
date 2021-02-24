@@ -1,4 +1,5 @@
 import random
+import sys
 
 import numpy as np
 from pettingzoo.magent import battlefield_v2
@@ -6,8 +7,7 @@ from pettingzoo.utils import random_demo
 
 env = battlefield_v2.parallel_env()
 obs = env.reset()
-
-NUM_STEPS = 500
+NUM_STEPS = int(sys.argv[1]) if len(sys.argv) > 1 else 50
 
 def sample_action(env, agent, obs):
 
@@ -20,7 +20,7 @@ def sample_action(env, agent, obs):
 
     return action
 
-for s in range(NUM_STEPS):
+for s in range(1, NUM_STEPS + 1):
     print(f'--- TURN {s} ---')
 
     env.render()
