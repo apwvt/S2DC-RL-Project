@@ -15,6 +15,14 @@ other PettingZoo environments.
 
 For a simple example of our modified environment in action, look at `examples/custom_battle.py`.
 
+## MuZero Implementation
+
+The Implementation of MuZero is done in PyTorch and uses Ray to improve training performance through having multiple
+self-play actors running in various threads contributing data to a shared replay buffer.
+
+The initial code organization and implementation is based on 
+[Werner Duvaud's general MuZero implementation](https://github.com/werner-duvaud/muzero-general)
+
 ## Development
 
 In order to develop and run the code, it is recommended that the package we installed locally. The simplest way of
@@ -30,3 +38,4 @@ package locally.__
 
 __When running the code in temporary environments (Docker Containers, Google Collab Notebooks, etc.), this line
 will need to be run with each new instance.__
+
