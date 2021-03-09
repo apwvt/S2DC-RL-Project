@@ -5,7 +5,7 @@ class GameHistory:
     Store only usefull information of a self-play game.
     """
 
-    def __init__(self):
+    def __init__(self, team=-1):
         self.observation_history = []
         self.action_history = []
         self.reward_history = []
@@ -16,6 +16,9 @@ class GameHistory:
         # For PER
         self.priorities = None
         self.game_priority = None
+
+        # For team score tracking
+        self.team = team
 
     def store_search_statistics(self, root, action_space):
         # Turn visit count from root into a policy

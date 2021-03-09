@@ -98,6 +98,7 @@ class MCTS:
                 else:
                     # Single agent modeling mode for large numbers of players
                     #virtual_to_play = self.config.players[virtual_to_play] # no-op
+                    pass
 
             # Inside the search tree we use the dynamics function to obtain the next hidden
             # state given an action and the previous hidden state

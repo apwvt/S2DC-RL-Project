@@ -17,6 +17,8 @@ from muzero_collab.remote import SharedStorage
 from muzero_collab.remote import Trainer
 from muzero_collab.utils import CPUActor
 
+from muzero_collab.games.battle import parallel_env, MuZeroConfig
+
 
 class MuZero:
     """
@@ -34,6 +36,7 @@ class MuZero:
 
     def __init__(self, game_name, config=None, split_resources_in=1):
         # Load the game and the config from the module with the game name
+        '''
         try:
             game_module = importlib.import_module("games." + game_name)
             self.Game = game_module.Game
@@ -43,6 +46,11 @@ class MuZero:
                 f'{game_name} is not a supported game name, try "cartpole" or refer to the documentation for adding a new game.'
             )
             raise err
+        '''
+
+        # hardcode overriding game for now
+        self.Game = parallel_env
+        self.config = MuZeroConfig()
 
         # Overwrite the config
         if config:
