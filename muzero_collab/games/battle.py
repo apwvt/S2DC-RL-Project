@@ -26,6 +26,7 @@ DEFAULT_MINIMAP_MODE = True
 DEFAULT_REWARD_ARGS = dict(step_reward=-0.005, dead_penalty=-0.1, attack_penalty=-0.1, attack_opponent_reward=0.2)
 
 
+
 def parallel_env(map_size=DEFAULT_MAP_SIZE, max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, map_layout=DEFAULT_MAP, **reward_args):
     env_reward_args = dict(**DEFAULT_REWARD_ARGS)
     env_reward_args.update(reward_args)
@@ -35,7 +36,7 @@ class BattleEnv(_parallel_env):
     """Custom Battle Environment that allows for modification of the map through a configuration
 
     The code to generate the map which adds the players has been modified to include adding barriers as seen in the
-    Battlefield environment. An additional change has been made to help balance teams as this is not ensured in the 
+    Battlefield environment. An additional change has been made to help balance teams as this is not ensured in the
     base Battle Environment. It is still not certain that teams will always be balanced, but using a map_size of 15
     will provide a consistent 6v6 environment as long as no players collide with barriers.
 
@@ -43,11 +44,11 @@ class BattleEnv(_parallel_env):
     the left or right edge where teams are spawned.
     """
 
-    def __init__(self, 
+    def __init__(self,
         map_size,
         minimap_mode,
-        reward_args, 
-        max_cycles, 
+        reward_args,
+        max_cycles,
         map_layout
     ):
         self.map_size = map_size
@@ -71,14 +72,20 @@ class BattleEnv(_parallel_env):
                 if col:
                     self.obs_pos.append((j, i))
 
+    def legal_actions(self):
+        return list(range(21))
+
+    def to_play(self):
+        return 0
+
     def generate_map(self):
         """Generates the map for a run through the environment
 
         This function is called within the super class's `reset` function to create a new game.
-        It is responsible for adding the barriers to the game board as well as spawning each of the 
+        It is responsible for adding the barriers to the game board as well as spawning each of the
         teams. The size of the teams changes with the size of the map.
 
-        Besides adding the barriers, another slight modification has been made to try and encourage 
+        Besides adding the barriers, another slight modification has been made to try and encourage
         balanced teams to be created more often. These changes still do not garuantee for balanced teams.
         """
         # add the barriers
@@ -105,7 +112,7 @@ class BattleEnv(_parallel_env):
         side = int(math.sqrt(n)) * 2
         pos = []
         hi = width - 1
-        lo = width + 1 - side 
+        lo = width + 1 - side
         for x in range(lo, hi, 2):
             for y in range((height - side) // 2, (height - side) // 2 + side, 2):
                 pos.append([x, y, 0])
