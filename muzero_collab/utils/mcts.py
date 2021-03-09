@@ -89,11 +89,15 @@ class MCTS:
                 action, node = self.select_child(node, min_max_stats)
                 search_path.append(node)
 
-                # Players play turn by turn
-                if virtual_to_play + 1 < len(self.config.players):
-                    virtual_to_play = self.config.players[virtual_to_play + 1]
+                if len(self.config.players) <= 2:
+                    # Players play turn by turn
+                    if virtual_to_play + 1 < len(self.config.players):
+                        virtual_to_play = self.config.players[virtual_to_play + 1]
+                    else:
+                        virtual_to_play = self.config.players[0]
                 else:
-                    virtual_to_play = self.config.players[0]
+                    # Single agent modeling mode for large numbers of players
+                    #virtual_to_play = self.config.players[virtual_to_play] # no-op
 
             # Inside the search tree we use the dynamics function to obtain the next hidden
             # state given an action and the previous hidden state
@@ -187,9 +191,16 @@ class MCTS:
                 value = (
                     -node.reward if node.to_play == to_play else node.reward
                 ) + self.config.discount * value
+        elif len(self.config.players) > 2:
+            for node in reversed(search_path):
+                node.value_sum += value
+                node.visit_count += 1
+                min_max_stats.update(node.reward + self.config.discount * node.value())
+
+                value = node.reward + self.config.discount * value
 
         else:
-            raise NotImplementedError("More than two player mode not implemented.")
+            raise NotImplementedError("The game has an illegal number of players.")
 
 
 class Node:
@@ -235,4 +246,4 @@ class Node:
         noise = numpy.random.dirichlet([dirichlet_alpha] * len(actions))
         frac = exploration_fraction
         for a, n in zip(actions, noise):
-            self.children[a].prior = self.children[a].prior * (1 - frac) + n * frac 
+            self.children[a].prior = self.children[a].prior * (1 - frac) + n * frac
