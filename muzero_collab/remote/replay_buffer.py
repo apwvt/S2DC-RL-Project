@@ -1,9 +1,8 @@
 import copy
-import time
 
 import numpy
 import ray
-import torch
+
 
 @ray.remote
 class ReplayBuffer:
@@ -15,7 +14,7 @@ class ReplayBuffer:
 
     def __init__(self, initial_checkpoint, initial_buffer, config):
         self.config = config
-        self.buffer = copy.deepcopy(inital_buffer)
+        self.buffer = copy.deepcopy(initial_buffer)
         self.num_played_games = initial_checkpoint['num_played_games']
         self.num_played_steps = initial_checkpoint['num_played_steps']
         self.total_samples = sum(len(game_history.root_values) for game_history in self.buffer.values())
@@ -60,48 +59,48 @@ class ReplayBuffer:
         return self.buffer
 
     def get_batch(self):
-       index_batch = []
-       observation_batch = []
-       action_batch = []
-       reward_batch = []
-       value_batch = []
-       policy_batch = []
-       gradient_scale_batch = []
+        index_batch = []
+        observation_batch = []
+        action_batch = []
+        reward_batch = []
+        value_batch = []
+        policy_batch = []
+        gradient_scale_batch = []
 
-       weight_batch = [] if self.config.PER else None
+        weight_batch = [] if self.config.PER else None
 
-       for game_id, game_history, game_prob in self.sample_n_games(self.config.batch_size):
-           game_pos, pos_prob = self.sample_position(game_history)
+        for game_id, game_history, game_prob in self.sample_n_games(self.config.batch_size):
+            game_pos, pos_prob = self.sample_position(game_history)
 
-           values, rewards, policies, actions = self.make_target(game_history, game_pos)
+            values, rewards, policies, actions = self.make_target(game_history, game_pos)
 
-           index_batch.append([game_id, game_pos])
-           observation_batch.append(game_history.get_stacked_observations(game_pos, self.config.stacked_observations))
-           action_batch.append(actions)
-           value_batch.append(values)
-           reward_batch.append(rewards)
-           policy_batch.append(policies)
-           gradient_scale_batch.append(
-                [min(self.config.num_unroll_steps, len(game_history.action_history) - game_pos)] * len(actions))
+            index_batch.append([game_id, game_pos])
+            observation_batch.append(game_history.get_stacked_observations(game_pos, self.config.stacked_observations))
+            action_batch.append(actions)
+            value_batch.append(values)
+            reward_batch.append(rewards)
+            policy_batch.append(policies)
+            gradient_scale_batch.append(
+                    [min(self.config.num_unroll_steps, len(game_history.action_history) - game_pos)] * len(actions))
 
-           if self.config.PER:
-               weight_batch.append(1 / (self.total_samples * game_prob * pos_prob))
-        
-       if self.config.PER:
-           weight_batch = numpy.array(weight_batch, dtype='float32') / max(weight_batch)
+            if self.config.PER:
+                weight_batch.append(1 / (self.total_samples * game_prob * pos_prob))
 
-       return (
-            index_batch,
-            (
-                observation_batch,
-                action_batch,
-                value_batch,
-                reward_batch,
-                policy_batch,
-                weight_batch,
-                gradient_scale_batch,
-            ),
-        )
+        if self.config.PER:
+            weight_batch = numpy.array(weight_batch, dtype='float32') / max(weight_batch)
+
+        return (
+                index_batch,
+                (
+                    observation_batch,
+                    action_batch,
+                    value_batch,
+                    reward_batch,
+                    policy_batch,
+                    weight_batch,
+                    gradient_scale_batch,
+                    ),
+                )
 
     def sample_game(self, force_uniform=False):
         game_prob = None
@@ -159,8 +158,8 @@ class ReplayBuffer:
     def update_game_history(self, game_id, game_history):
         if next(iter(self.buffer)) <= game_id:
             if self.config.PER:
-                game_history = numpy.copy(game_history.priorities)
-            self.buffer.game_id = game_history
+                game_history.priorities = numpy.copy(game_history.priorities)
+            self.buffer[game_id] = game_history
 
     def update_priorities(self, priorities, index_info):
         for i in range(len(index_info)):
@@ -171,7 +170,7 @@ class ReplayBuffer:
                 start_index = game_pos
                 end_index = min(game_pos + len(priority), len(self.buffer[game_id].priorities))
 
-                self.buffer[game_id].priorities[start_index:end_index] = priority[:, end_index - start_index]
+                self.buffer[game_id].priorities[start_index:end_index] = priority[:end_index - start_index]
 
                 self.buffer[game_id].game_priority = numpy.max(self.buffer[game_id].priorities)
 
@@ -229,4 +228,4 @@ class ReplayBuffer:
                 )
                 actions.append(numpy.random.choice(self.config.action_space))
 
-            return target_values, target_rewards, target_policies, actions
+        return target_values, target_rewards, target_policies, actions

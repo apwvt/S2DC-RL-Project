@@ -1,17 +1,22 @@
 import copy
 import importlib
 import math
+import os
+import pickle
+import time
 
 import numpy
 import ray
 import torch
 from torch.utils.tensorboard import SummaryWriter
 
-from muzero_collab.models import MuZeroNetwork
+from muzero_collab.remote import Reanalyse
 from muzero_collab.remote import ReplayBuffer
 from muzero_collab.remote import SelfPlay
 from muzero_collab.remote import SharedStorage
 from muzero_collab.remote import Trainer
+from muzero_collab.utils import CPUActor
+
 
 class MuZero:
     """
@@ -125,7 +130,7 @@ class MuZero:
         if 0 < self.num_gpus:
             num_gpus_per_worker = self.num_gpus / (
                 self.config.train_on_gpu
-                + self.config.num_workers * self.config.selfplay_on_gu
+                + self.config.num_workers * self.config.selfplay_on_gpu
                 + log_in_tensorboard * self.config.selfplay_on_gpu
                 + self.config.use_last_model_value * self.config.reanalyse_on_gpu
             )
@@ -135,7 +140,7 @@ class MuZero:
             num_gpus_per_worker = 0
 
         # Initialize workers
-        self.training_worker = trainer.Trainer.options(
+        self.training_worker = Trainer.options(
             num_cpus=0, num_gpus=num_gpus_per_worker if self.config.train_on_gpu else 0,
         ).remote(self.checkpoint, self.config)
 
@@ -149,7 +154,7 @@ class MuZero:
         )
 
         if self.config.use_last_model_value:
-            self.reanalyse_worker = replay_buffer.Reanalyse.options(
+            self.reanalyse_worker = Reanalyse.options(
                 num_cpus=0,
                 num_gpus=num_gpus_per_worker if self.config.reanalyse_on_gpu else 0,
             ).remote(self.checkpoint, self.config)
@@ -418,6 +423,7 @@ class MuZero:
                 self.checkpoint["num_played_games"] = 0
                 self.checkpoint["num_reanalysed_games"] = 0
 
+    '''
     def diagnose_model(self, horizon):
         """
         Play a game only with the learned model then play the same trajectory in the real
@@ -431,3 +437,4 @@ class MuZero:
         dm.compare_virtual_with_real_trajectories(obs, game, horizon)
         input("Press enter to close all plots")
         dm.close_all()
+    '''

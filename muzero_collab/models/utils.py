@@ -1,5 +1,6 @@
 import torch
 
+
 def dict_to_cpu(dictionary):
     cpu_dict = {}
 
@@ -12,6 +13,7 @@ def dict_to_cpu(dictionary):
             cpu_dict[key] = value
     return cpu_dict
 
+
 def support_to_scalar(logits, support_size):
     probabilities = torch.softmax(logits, dim=1)
 
@@ -23,7 +25,7 @@ def support_to_scalar(logits, support_size):
     )
 
     x = torch.sum(support * probabilities, dim=1, keepdim=True)
-    
+
     # Invert the scaling (defined in https://arxiv.org/abs/1805.11593)
     x = torch.sign(x) * (
         ((torch.sqrt(1 + 4 * 0.001 * (torch.abs(x) + 1 + 0.001)) - 1) / (2 * 0.001))
@@ -32,6 +34,7 @@ def support_to_scalar(logits, support_size):
     )
 
     return x
+
 
 def scalar_to_support(x, support_size):
     # Reduce the scale (defined in https://arxiv.org/abs/1805.11593)
@@ -51,5 +54,3 @@ def scalar_to_support(x, support_size):
     logits.scatter_(2, indexes.long().unsqueeze(-1), prob.unsqueeze(-1))
 
     return logits
-
-

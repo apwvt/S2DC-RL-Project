@@ -4,6 +4,7 @@ import os
 import ray
 import torch
 
+
 @ray.remote
 class SharedStorage:
     """
@@ -17,8 +18,8 @@ class SharedStorage:
     to the latest weights, fetching data to train the model, and signal when training has completed.
 
     Fields:
-        config: a class containing fields to describe the training configuration. 
-        checkpoint: dictionary like object to establish where to begin training from and to 
+        config: a class containing fields to describe the training configuration.
+        checkpoint: dictionary like object to establish where to begin training from and to
                     track training progress - where information is stored
     """
 
@@ -56,9 +57,9 @@ class SharedStorage:
         If keys is a string, will update the key in the checkpoint with the provided value.
         If keys is a dictionary, will update the checkpoint with the dictionary's keys and values.
         """
-        if isinstance(keys, str) and vales is not None:
+        if isinstance(keys, str) and values is not None:
             self.current_checkpoint[keys] = values
         elif isinstance(keys, dict):
-            self.current_checkpoint.udate(keys)
+            self.current_checkpoint.update(keys)
         else:
             raise TypeError

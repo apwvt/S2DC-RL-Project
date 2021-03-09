@@ -5,7 +5,7 @@ import numpy
 import ray
 import torch
 
-import muzero_collab.models
+import muzero_collab.models as models
 
 
 @ray.remote
@@ -89,7 +89,7 @@ class Trainer:
                     {
                         "weights": copy.deepcopy(self.model.get_weights()),
                         "optimizer_state": copy.deepcopy(
-                            models.dict_to_cpu(self.optimizer.state_dict())
+                            models.utils.dict_to_cpu(self.optimizer.state_dict())
                         ),
                     }
                 )
@@ -111,7 +111,7 @@ class Trainer:
                 time.sleep(self.config.training_delay)
             if self.config.ratio:
                 while (
-                    sef.training_step
+                    self.training_step
                     / max(
                         1, ray.get(shared_storage.get_info.remote("num_played_steps"))
                     )
@@ -156,8 +156,8 @@ class Trainer:
         # target_policy: batch, num_unroll_steps+1, len(action_space)
         # gradient_scale_batch: batch, num_unroll_steps+1
 
-        target_value = models.scalar_to_support(target_value, self.config.support_size)
-        target_reward = models.scalar_to_support(
+        target_value = models.utils.scalar_to_support(target_value, self.config.support_size)
+        target_reward = models.utils.scalar_to_support(
             target_reward, self.config.support_size
         )
         # target_value: batch, num_unroll_steps+1, 2*support_size+1
@@ -178,7 +178,7 @@ class Trainer:
         # predictions: num_unroll_steps+1, 3, batch, 2*support_size+1 | 2*support_size+1 | 9 (according to the 2nd dim)
 
         ## Compute losses
-        value_loss, reward_loss, policy_loss = (0, 0, 0)
+        value_loss, reward_loss, policy_loss = 0, 0, 0
         value, reward, policy_logits = predictions[0]
         # Ignore reward loss for the first batch step
         current_value_loss, _, current_policy_loss = self.loss_function(
@@ -193,7 +193,7 @@ class Trainer:
         policy_loss += current_policy_loss
         # Compute priorities for the prioritized replay (See paper appendix Training)
         pred_value_scalar = (
-            models.support_to_scalar(value, self.config.support_size)
+            models.utils.support_to_scalar(value, self.config.support_size)
             .detach()
             .cpu()
             .numpy()
@@ -203,7 +203,6 @@ class Trainer:
             numpy.abs(pred_value_scalar - target_value_scalar[:, 0])
             ** self.config.PER_alpha
         )
-
         for i in range(1, len(predictions)):
             value, reward, policy_logits = predictions[i]
             (
@@ -236,7 +235,7 @@ class Trainer:
 
             # Compute priorities for the prioritized replay (See paper appendix Training)
             pred_value_scalar = (
-                models.support_to_scalar(value, self.config.support_size)
+                models.utils.support_to_scalar(value, self.config.support_size)
                 .detach()
                 .cpu()
                 .numpy()
@@ -292,7 +291,6 @@ class Trainer:
         # Cross-entropy seems to have a better convergence than MSE
         value_loss = (-target_value * torch.nn.LogSoftmax(dim=1)(value)).sum(1)
         reward_loss = (-target_reward * torch.nn.LogSoftmax(dim=1)(reward)).sum(1)
-        policy_loss = (-target_policy * torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(
-            1
-        )
-        return value_loss, reward_loss, policy_lossl
+        policy_loss = (-target_policy * torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(1)
+
+        return value_loss, reward_loss, policy_loss
