@@ -39,7 +39,7 @@ class SelfPlay:
             self.model.set_weights(ray.get(shared_storage.get_info.remote("weights")))
 
             if not test_mode:
-                game_histories = self.play_game(
+                game_histories, game_steps = self.play_game(
                     self.config.visit_softmax_temperature_fn(
                         trained_steps=ray.get(
                             shared_storage.get_info.remote("training_step")
@@ -52,39 +52,43 @@ class SelfPlay:
                 )
 
                 # save each individual game_history to the replay_buffer, counts each agent's move as individual steps
-                for game_history in game_histories:
+                for game_history in game_histories.values():
                     replay_buffer.save_game.remote(game_history, shared_storage)
 
             else:
                 # Take the best action (no exploration) in test mode
-                game_histories = self.play_game(
+                game_histories, game_steps= self.play_game(
                     0,
                     self.config.temperature_threshold,
-                    False,
+                    True,
                     "self" if len(self.config.players) == 1 else self.config.opponent,
                     self.config.muzero_player,
                 )
 
-                episode_length = len(list(game_histories.values())[0]) - 1
-                total_reward = sum(sum(gh.reward_history) for gh in game_histories)
-                mean_value = numpy.mean(numpy.mean([value for value in gh.root_values if value]) for gh in game_histories)
+                episode_length = game_steps
+                total_reward = sum(sum(gh.reward_history) for gh in game_histories.values())
+                mean_value = numpy.mean([numpy.mean([value for value in gh.root_values if value]) for gh in game_histories.values()])
+
+                red_reward = sum(sum(gh.reward_history) for gh in game_histories.values() if gh.team == RED_TEAM)
+                blue_reward = sum(sum(gh.reward_history) for gh in game_histories.values() if gh.team == BLUE_TEAM)
+
+                shared_storage.set_info.remote({'red_reward': red_reward, 'blue_reward': blue_reward})
 
                 # Save to the shared storage
                 shared_storage.set_info.remote(
                     {
-                        "episode_length": episode_length,
-                        "total_reward": total_reward,
-                        "mean_value": mean_value
+                        'episode_length': episode_length,
+                        'total_reward': total_reward,
+                        'mean_value': mean_value,
+                        'red_reward': red_reward,
+                        'blue_reward': blue_reward
                     }
                 )
 
                 if 1 < len(self.config.players):
-                    red_reward = sum(sum(gh.reward_history) for gh in game_histories if gh.team == RED_TEAM)
-                    blue_reward = sum(sum(gh.reward_history) for gh in game_histories if gh.team == BLUE_TEAM)
-
-                    shared_storage.set_info.remote({'red_reward': red_reward, 'blue_reward': blue_reward})
 
                     # NOTE: below may be broken given our to-play
+                    game_history = list(game_histories.values())[0]
                     shared_storage.set_info.remote(
                         {
                             "muzero_reward": sum(
@@ -128,9 +132,10 @@ class SelfPlay:
         """
 
         assert self.game.agents is not None, 'MuZero implementation not refactored for single player games'
-        game_histories = {agent: GameHistory(team=RED_TEAM if 'red' in agent else BLUE_TEAM) for agent in self.game.agents}
 
         observations = self.game.reset()
+
+        game_histories = {agent: GameHistory(team=RED_TEAM if 'red' in agent else BLUE_TEAM) for agent in self.game.agents}
 
         # appending initial values to agents' game histories
         for agent in self.game.agents:
@@ -140,18 +145,19 @@ class SelfPlay:
             game_histories[agent].to_play_history.append(self.game.to_play())
 
         done = False
+        game_steps = 0
 
         if render:
             self.game.render()
 
         with torch.no_grad():
-            while (not done and len(list(game_histories.values())[0].action_history) <= self.config.max_moves):
+            while (not done and game_steps <= self.config.max_moves):
                 assert (
-                    len(numpy.array(observation).shape) == 3
-                ), f"Observation should be 3 dimensionnal instead of {len(numpy.array(observation).shape)} dimensionnal. Got observation of shape: {numpy.array(observation).shape}"
+                    len(numpy.array(list(observations.values())[0]).shape) == 3
+                ), f"Observation should be 3 dimensionnal instead of {len(numpy.array(list(observations.values())[0]).shape)} dimensionnal. Got observation of shape: {numpy.array(list(observations.values())[0]).shape}"
                 assert (
-                    numpy.array(observation).shape == self.config.observation_shape
-                ), f"Observation should match the observation_shape defined in MuZeroConfig. Expected {self.config.observation_shape} but got {numpy.array(observation).shape}."
+                    numpy.array(list(observations.values())[0]).shape == self.config.observation_shape
+                ), f"Observation should match the observation_shape defined in MuZeroConfig. Expected {self.config.observation_shape} but got {numpy.array(list(observations.values())[0]).shape}."
 
                 # determine next action for every agent
                 actions = {}
@@ -188,10 +194,10 @@ class SelfPlay:
                             opponent, stacked_observations
                         )
 
-                    actions[agent] = action
+                    actions[agent] = 20# action
                     roots[agent] = root
 
-                observations, rewards, dones, infos = self.game.step(action)
+                observations, rewards, dones, infos = self.game.step(actions)
 
                 # storing updates in each agent's game history
                 for agent in self.game.agents:
@@ -202,13 +208,17 @@ class SelfPlay:
                     game_histories[agent].to_play_history.append(self.game.to_play())
 
                 # environment is done if all agents are done
-                done = all(d for d in dones.values())
+                done = not self.game.agents
+                print(self.game.agents)
+                print(actions)
+                print(done)
+                game_steps += 1
 
                 if render:
-                    print(f"Played action: {self.game.action_to_string(action)}")
+                    #print(f"Played action: {self.game.action_to_string(action)}")
                     self.game.render()
 
-        return game_histories
+        return game_histories, game_steps
 
     def close_game(self):
         self.game.close()

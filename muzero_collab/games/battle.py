@@ -17,10 +17,10 @@ class MuZeroConfig:
 
 
         ### Game
-        self.observation_shape = (1, 1, 4)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
-        self.action_space = list(range(2))  # Fixed list of all possible actions. You should only edit the length
+        self.observation_shape = (13, 13, 41)  # Dimensions of the game observation, must be 3D (channel, height, width). For a 1D array, please reshape it to (1, 1, length of array)
+        self.action_space = list(range(21))  # Fixed list of all possible actions. You should only edit the length
         self.players = list(range(1))  # List of players. You should only edit the length
-        self.stacked_observations = 0  # Number of previous observations and previous actions to add to the current observation
+        self.stacked_observations = 5  # Number of previous observations and previous actions to add to the current observation
 
         # Evaluate
         self.muzero_player = 0  # Turn Muzero begins to play (0: MuZero plays first, 1: MuZero plays second)
@@ -109,8 +109,22 @@ class MuZeroConfig:
         self.training_delay = 0  # Number of seconds to wait after each training step
         self.ratio = 1.5  # Desired training steps per self played step ratio. Equivalent to a synchronous version, training can take much longer. Set it to None to disable it
 
+    def visit_softmax_temperature_fn(self, trained_steps):
+        """
+        Parameter to alter the visit count distribution to ensure that the action selection becomes greedier as training progresses.
+        The smaller it is, the more likely the best action (ie with the highest visit count) is chosen.
 
-DEFAULT_MAP_SIZE = 15
+        Returns:
+            Positive float.
+        """
+        if trained_steps < 0.5 * self.training_steps:
+            return 1.0
+        elif trained_steps < 0.75 * self.training_steps:
+            return 0.5
+        else:
+            return 0.25
+
+
 DEFAULT_MAP = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
@@ -134,11 +148,10 @@ DEFAULT_MINIMAP_MODE = True
 DEFAULT_REWARD_ARGS = dict(step_reward=-0.005, dead_penalty=-0.1, attack_penalty=-0.1, attack_opponent_reward=0.2)
 
 
-
-def parallel_env(map_size=DEFAULT_MAP_SIZE, max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, map_layout=DEFAULT_MAP, **reward_args):
+def parallel_env(max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, map_layout=DEFAULT_MAP, **reward_args):
     env_reward_args = dict(**DEFAULT_REWARD_ARGS)
     env_reward_args.update(reward_args)
-    return BattleEnv(map_size, minimap_mode, env_reward_args, max_cycles, map_layout)
+    return BattleEnv(minimap_mode, env_reward_args, max_cycles, map_layout)
 
 class BattleEnv(_parallel_env):
     """Custom Battle Environment that allows for modification of the map through a configuration
@@ -153,15 +166,14 @@ class BattleEnv(_parallel_env):
     """
 
     def __init__(self,
-        map_size,
         minimap_mode,
         reward_args,
         max_cycles,
         map_layout
     ):
-        self.map_size = map_size
+        self.map_size = len(map_layout)
         self._configure_map(map_layout)
-        super().__init__(map_size, minimap_mode, reward_args, max_cycles)
+        super().__init__(self.map_size, minimap_mode, reward_args, max_cycles)
 
     def _configure_map(self, map_layout):
         """Configures the map given a layout
@@ -172,10 +184,9 @@ class BattleEnv(_parallel_env):
         Args:
             map_layout: 2D array describing how to setup the map
         """
-        assert len(map_layout) == self.map_size
         self.obs_pos = []
         for i, row in enumerate(map_layout):
-            assert len(row) == self.map_size, 'all rows in map_layout must have length map_size'
+            assert len(row) == self.map_size, f'all rows in map_layout must have same length as map_size: row {i}, length: {len(row)}'
             for j, col in enumerate(row):
                 if col:
                     self.obs_pos.append((j, i))

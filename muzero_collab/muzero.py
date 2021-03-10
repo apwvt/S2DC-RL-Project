@@ -261,6 +261,7 @@ class MuZero:
                 writer.add_scalar(
                     "1.Total_reward/2.Mean_value", info["mean_value"], counter,
                 )
+                print('el: ', info['episode_length'])
                 writer.add_scalar(
                     "1.Total_reward/3.Episode_length", info["episode_length"], counter,
                 )
