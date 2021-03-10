@@ -261,7 +261,6 @@ class MuZero:
                 writer.add_scalar(
                     "1.Total_reward/2.Mean_value", info["mean_value"], counter,
                 )
-                print('el: ', info['episode_length'])
                 writer.add_scalar(
                     "1.Total_reward/3.Episode_length", info["episode_length"], counter,
                 )
@@ -432,6 +431,9 @@ class MuZero:
                 self.checkpoint["num_played_games"] = 0
                 self.checkpoint["num_reanalysed_games"] = 0
 
+    def __del__(self):
+        self.terminate_workers()
+        ray.shutdown()
     '''
     def diagnose_model(self, horizon):
         """

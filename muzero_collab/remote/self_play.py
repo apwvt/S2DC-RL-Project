@@ -18,7 +18,8 @@ class SelfPlay:
 
     def __init__(self, initial_checkpoint, Game, config, seed):
         self.config = config
-        self.game = Game(seed)
+        #self.game = Game(seed)
+        self.game = Game()
 
         # Fix random generator seed
         numpy.random.seed(seed)
@@ -57,10 +58,10 @@ class SelfPlay:
 
             else:
                 # Take the best action (no exploration) in test mode
-                game_histories, game_steps= self.play_game(
+                game_histories, game_steps = self.play_game(
                     0,
                     self.config.temperature_threshold,
-                    True,
+                    False,
                     "self" if len(self.config.players) == 1 else self.config.opponent,
                     self.config.muzero_player,
                 )
@@ -151,7 +152,7 @@ class SelfPlay:
             self.game.render()
 
         with torch.no_grad():
-            while (not done and game_steps <= self.config.max_moves):
+            while (not done) and (game_steps <= self.config.max_moves):
                 assert (
                     len(numpy.array(list(observations.values())[0]).shape) == 3
                 ), f"Observation should be 3 dimensionnal instead of {len(numpy.array(list(observations.values())[0]).shape)} dimensionnal. Got observation of shape: {numpy.array(list(observations.values())[0]).shape}"
@@ -194,7 +195,7 @@ class SelfPlay:
                             opponent, stacked_observations
                         )
 
-                    actions[agent] = 20# action
+                    actions[agent] = action
                     roots[agent] = root
 
                 observations, rewards, dones, infos = self.game.step(actions)
@@ -209,9 +210,6 @@ class SelfPlay:
 
                 # environment is done if all agents are done
                 done = not self.game.agents
-                print(self.game.agents)
-                print(actions)
-                print(done)
                 game_steps += 1
 
                 if render:
