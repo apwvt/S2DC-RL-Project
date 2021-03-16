@@ -1,8 +1,9 @@
-import sys
+import os
 
 from matplotlib import animation
 import matplotlib.pyplot as plt
 import torch
+from tqdm import tqdm
 
 from muzero_collab.games.battle import parallel_env, MuZeroConfig
 from muzero_collab.models import MuZeroNetwork
@@ -17,10 +18,11 @@ Open file in CLI with:
 xgd-open <filelname>
 """
 
+os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 
-def save_frames_as_gif(frames, filename, path='../gifs'):
 
-    #Mess with this to change frame size
+def save_frames_as_gif(frames, filename, fps=50):
+
     plt.figure(figsize=(frames[0].shape[1] / 72.0, frames[0].shape[0] / 72.0), dpi=72)
 
     patch = plt.imshow(frames[0])
@@ -29,8 +31,9 @@ def save_frames_as_gif(frames, filename, path='../gifs'):
     def animate(i):
         patch.set_data(frames[i])
 
-    anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames), interval=50)
-    anim.save(path + filename, writer='imagemagick', fps=60)
+    anim = animation.FuncAnimation(plt.gcf(), animate, frames=len(frames), interval=fps)
+    anim.save(filename, writer='imagemagick', fps=fps)
+    plt.close()
 
 
 def select_action(config, model, stacked_observations, env):
@@ -41,9 +44,7 @@ def select_action(config, model, stacked_observations, env):
     return action
 
 
-if __name__ == '__main__':
-    checkpoint_file = sys.argv[1]
-    gif_filename = sys.argv[2]
+def make_gif(checkpoint_file, output_folder, filename=None, fps=50):
 
     config = MuZeroConfig()
 
@@ -62,8 +63,7 @@ if __name__ == '__main__':
     for agent in env.agents:
         game_histories[agent].observation_history.append(observations[agent])
 
-    for t in range(250):
-        #Render to frames buffer
+    for t in tqdm(range(250)):
         frames.append(env.render(mode="rgb_array"))
 
         actions = {}
@@ -82,4 +82,51 @@ if __name__ == '__main__':
             break
 
     env.close()
-    save_frames_as_gif(frames, gif_filename)
+
+    if not filename:
+        filename = checkpoint_file.split('/')[-1].split('.')[0]
+
+    gif_filename = os.path.join(output_folder, f'{filename}.gif')
+
+    save_frames_as_gif(frames, gif_filename, fps=fps)
+
+
+if __name__ == '__main__':
+    import argparse
+    from glob import glob
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('checkpoint', help='Filepath to checkpoint file or folder of checkpoints')
+    parser.add_argument('--output', default=None, help='Folder to save generated gif file(s) to (Default: <checkpoint folder>/gifs)')
+    parser.add_argument('--filename', default=None, help='Filename for output gif (Default: checkpoint filename)')
+    parser.add_argument('--fps', type=int, default=50, help='Frames per second of gif (Default: 50)')
+
+    args = parser.parse_args()
+
+    if not args.output:
+        if os.path.isdir(args.checkpoint):
+            args.output = os.path.join(args.checkpoint, 'gifs')
+        else:
+            output_path = os.path.dirname(args.checkpoint)
+
+            if not output_path:
+                raise Exception(f'Model Checkpoint path should contain at least relative directory reference: {args.checkpoint}')
+
+            args.output = output_path
+
+    os.makedirs(args.output, exist_ok=True)
+
+    if os.path.isdir(args.checkpoint):
+        checkpoint_files = glob(os.path.join(args.checkpoint, '*.checkpoint'))
+
+        print(f'Found {len(checkpoint_files)} checkpoint files in {args.checkpoint}.')
+        print('Generating gifs now...')
+
+        for checkpoint_file in tqdm(checkpoint_files):
+            make_gif(checkpoint_file, args.output, filename=args.filename, fps=args.fps)
+
+    else:
+        print(f'Generating file for {args.checkpoint}...')
+
+        make_gif(args.checkpoint, args.output_folder, filename=args.filename, fps=args.fps)
