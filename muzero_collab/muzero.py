@@ -94,7 +94,14 @@ class MuZero:
         # Checkpoint and replay buffer used to initialize workers
         self.checkpoint = {
             "weights": None,
+            "weights_beta": None,
             "optimizer_state": None,
+            "alpha_reward": 0,
+            "mean_alpha_reward": 0,
+            "mean_alpha_value": 0,
+            "beta_reward": 0,
+            "mean_beta_reward": 0,
+            "mean_beta_value": 0,
             "total_reward": 0,
             "muzero_reward": 0,
             "opponent_reward": 0,
@@ -116,6 +123,7 @@ class MuZero:
         cpu_actor = CPUActor.remote()
         cpu_weights = cpu_actor.get_initial_weights.remote(self.config)
         self.checkpoint["weights"], self.summary = copy.deepcopy(ray.get(cpu_weights))
+        self.checkpoint["weights_beta"], self.summary = copy.deepcopy(ray.get(cpu_weights))
 
         # Workers
         self.self_play_workers = None
@@ -250,6 +258,12 @@ class MuZero:
             "num_played_games",
             "num_played_steps",
             "num_reanalysed_games",
+            "alpha_reward",
+            "mean_alpha_reward",
+            "mean_alpha_value",
+            "beta_reward",
+            "mean_beta_reward",
+            "mean_beta_value"
         ]
         info = ray.get(self.shared_storage_worker.get_info.remote(keys))
         try:
@@ -271,6 +285,24 @@ class MuZero:
                     "1.Total_reward/5.Opponent_reward",
                     info["opponent_reward"],
                     counter,
+                )
+                writer.add_scalar(
+                    "1.Total_reward/6.alpha_reward", info["alpha_reward"], counter,
+                )
+                writer.add_scalar(
+                    "1.Total_reward/7.mean_alpha_reward", info["mean_alpha_reward"], counter,
+                )
+                writer.add_scalar(
+                    "1.Total_reward/8.mean_alpha_value", info["mean_alpha_value"], counter,
+                )
+                writer.add_scalar(
+                    "1.Total_reward/9.beta_reward", info["beta_reward"], counter,
+                )
+                writer.add_scalar(
+                    "1.Total_reward/10.mean_beta_reward", info["mean_beta_reward"], counter,
+                )
+                writer.add_scalar(
+                    "1.Total_reward/11.mean_beta_value", info["mean_beta_value"], counter,
                 )
                 writer.add_scalar(
                     "2.Workers/1.Self_played_games", info["num_played_games"], counter,
@@ -299,7 +331,7 @@ class MuZero:
                 writer.add_scalar("3.Loss/Reward_loss", info["reward_loss"], counter)
                 writer.add_scalar("3.Loss/Policy_loss", info["policy_loss"], counter)
                 print(
-                    f'Last test reward: {info["total_reward"]:.2f}. Training step: {info["training_step"]}/{self.config.training_steps}. Played games: {info["num_played_games"]}. Loss: {info["total_loss"]:.2f}',
+                    f'Last test reward: {info["alpha_reward"]:.2f}. Training step: {info["training_step"]}/{self.config.training_steps}. Played games: {info["num_played_games"]}. Loss: {info["total_loss"]:.2f}',
                     end="\r",
                 )
                 counter += 1

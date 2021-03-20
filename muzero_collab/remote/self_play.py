@@ -1,4 +1,5 @@
 import time
+import random
 
 import numpy
 import ray
@@ -25,11 +26,17 @@ class SelfPlay:
         numpy.random.seed(seed)
         torch.manual_seed(seed)
 
-        # Initialize the network
+        # Initialize alpha network
         self.model = MuZeroNetwork(self.config)
         self.model.set_weights(initial_checkpoint["weights"])
         self.model.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
         self.model.eval()
+
+        # Initialize beta network
+        self.model_beta = MuZeroNetwork(self.config)
+        self.model_beta.set_weights(initial_checkpoint["weights_beta"])
+        self.model_beta.to(torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+        self.model_beta.eval()
 
     def continuous_self_play(self, shared_storage, replay_buffer, test_mode=False):
         while ray.get(
@@ -38,9 +45,10 @@ class SelfPlay:
             shared_storage.get_info.remote("terminate")
         ):
             self.model.set_weights(ray.get(shared_storage.get_info.remote("weights")))
+            self.model_beta.set_weights(ray.get(shared_storage.get_info.remote("weights_beta")))
 
             if not test_mode:
-                game_histories, game_steps = self.play_game(
+                alpha_histories, beta_histories, game_steps = self.play_game(
                     self.config.visit_softmax_temperature_fn(
                         trained_steps=ray.get(
                             shared_storage.get_info.remote("training_step")
@@ -53,12 +61,12 @@ class SelfPlay:
                 )
 
                 # save each individual game_history to the replay_buffer, counts each agent's move as individual steps
-                for game_history in game_histories.values():
+                for game_history in alpha_histories:
                     replay_buffer.save_game.remote(game_history, shared_storage)
 
             else:
                 # Take the best action (no exploration) in test mode
-                game_histories, game_steps = self.play_game(
+                alpha_histories, beta_histories, game_steps = self.play_game(
                     0,
                     self.config.temperature_threshold,
                     False,
@@ -66,29 +74,32 @@ class SelfPlay:
                     self.config.muzero_player,
                 )
 
-                episode_length = game_steps
-                total_reward = sum(sum(gh.reward_history) for gh in game_histories.values())
-                mean_value = numpy.mean([numpy.mean([value for value in gh.root_values if value]) for gh in game_histories.values()])
+                alpha_reward = sum(sum(gh.reward_history) for gh in alpha_histories)
+                mean_alpha_reward = alpha_reward / len(alpha_histories)
+                mean_alpha_value = numpy.mean([numpy.mean([value for value in gh.root_values if value]) for gh in alpha_histories])
 
-                red_reward = sum(sum(gh.reward_history) for gh in game_histories.values() if gh.team == RED_TEAM)
-                blue_reward = sum(sum(gh.reward_history) for gh in game_histories.values() if gh.team == BLUE_TEAM)
-
-                shared_storage.set_info.remote({'red_reward': red_reward, 'blue_reward': blue_reward})
+                beta_reward = sum(sum(gh.reward_history) for gh in beta_histories)
+                mean_beta_reward = beta_reward / len(beta_histories)
+                mean_beta_value = numpy.mean([numpy.mean([value for value in gh.root_values if value]) for gh in beta_histories])
 
                 # Save to the shared storage
                 shared_storage.set_info.remote(
                     {
-                        'episode_length': episode_length,
-                        'total_reward': total_reward,
-                        'mean_value': mean_value,
-                        'red_reward': red_reward,
-                        'blue_reward': blue_reward
+                        'episode_length': game_steps,
+                        'alpha_reward': alpha_reward,
+                        'mean_alpha_reward': mean_alpha_reward,
+                        'mean_alpha_value': mean_alpha_value,
+                        'beta_reward': beta_reward,
+                        'mean_beta_reward': mean_beta_reward,
+                        'mean_beta_value': mean_beta_value,
                     }
                 )
 
                 if 1 < len(self.config.players):
 
-                    # NOTE: below may be broken given our to-play
+                    # NOTE: below may be broken given our to-play, skipping for now
+                    pass
+
                     game_history = list(game_histories.values())[0]
                     shared_storage.set_info.remote(
                         {
@@ -134,6 +145,10 @@ class SelfPlay:
 
         assert self.game.agents is not None, 'MuZero implementation not refactored for single player games'
 
+        # choose which team the alpha model will control
+        # TODO: add number of teams to config
+        alpha_team = random.randint(0, 1)
+
         observations = self.game.reset()
 
         game_histories = {agent: GameHistory(team=RED_TEAM if 'red' in agent else BLUE_TEAM) for agent in self.game.agents}
@@ -166,12 +181,14 @@ class SelfPlay:
                 for agent in self.game.agents:
                     game_history = game_histories[agent]
 
+                    this_model = self.model if game_history.team == alpha_team else self.model_beta
+
                     stacked_observations = game_history.get_stacked_observations(-1, self.config.stacked_observations)
 
                     # Choose the action
                     if opponent == "self" or muzero_player == self.game.to_play():
                         root, mcts_info = MCTS(self.config).run(
-                            self.model,
+                            this_model,
                             stacked_observations,
                             self.game.legal_actions(),
                             self.game.to_play(),
@@ -180,8 +197,9 @@ class SelfPlay:
                         action = self.select_action(
                             root,
                             temperature
-                            if not temperature_threshold
-                            or len(game_history.action_history) < temperature_threshold
+                            if (not temperature_threshold
+                            or len(game_history.action_history) < temperature_threshold)
+                            and game_history.team == alpha_team
                             else 0,
                         )
 
@@ -216,7 +234,9 @@ class SelfPlay:
                     #print(f"Played action: {self.game.action_to_string(action)}")
                     self.game.render()
 
-        return game_histories, game_steps
+        alpha_histories = [gh for gh in game_histories.values() if gh.team == alpha_team]
+        beta_histories = [gh for gh in game_histories.values() if gh.team != alpha_team]
+        return alpha_histories, beta_histories, game_steps
 
     def close_game(self):
         self.game.close()
