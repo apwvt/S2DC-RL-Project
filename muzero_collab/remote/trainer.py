@@ -85,9 +85,14 @@ class Trainer:
 
             # Save to the shared storage
             if self.training_step % self.config.checkpoint_interval == 0:
+                # save the old model weights for beta
+                beta_weights = ray.get(shared_storage.get_info.remote('weights'))
+
+                # update the shared storage with new alpha and beta weights
                 shared_storage.set_info.remote(
                     {
                         "weights": copy.deepcopy(self.model.get_weights()),
+                        "weights_beta": beta_weights,
                         "optimizer_state": copy.deepcopy(
                             models.utils.dict_to_cpu(self.optimizer.state_dict())
                         ),
