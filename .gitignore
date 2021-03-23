@@ -130,6 +130,7 @@ dmypy.json
 
 # Dev environments
 .vim/
+.vscode/
 
 # Training results
 results/
