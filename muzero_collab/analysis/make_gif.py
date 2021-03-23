@@ -129,4 +129,4 @@ if __name__ == '__main__':
     else:
         print(f'Generating file for {args.checkpoint}...')
 
-        make_gif(args.checkpoint, args.output_folder, filename=args.filename, fps=args.fps)
+        make_gif(args.checkpoint, args.output, filename=args.filename, fps=args.fps)
