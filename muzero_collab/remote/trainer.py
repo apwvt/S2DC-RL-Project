@@ -85,19 +85,34 @@ class Trainer:
 
             # Save to the shared storage
             if self.training_step % self.config.checkpoint_interval == 0:
-                # save the old model weights for beta
-                beta_weights = ray.get(shared_storage.get_info.remote('weights'))
+                # We need to determine if we're doing a beta update with this checkpoint
+                beta_int = self.config.checkpoint_interval * self.config.beta_update_interval
 
-                # update the shared storage with new alpha and beta weights
-                shared_storage.set_info.remote(
-                    {
-                        "weights": copy.deepcopy(self.model.get_weights()),
-                        "weights_beta": beta_weights,
-                        "optimizer_state": copy.deepcopy(
-                            models.utils.dict_to_cpu(self.optimizer.state_dict())
-                        ),
-                    }
-                )
+                if self.training_step % beta_int == 0:
+                    # save the old model weights for beta
+                    beta_weights = ray.get(shared_storage.get_info.remote('old_weights'))
+
+                    # update the shared storage with new alpha and beta weights
+                    shared_storage.set_info.remote(
+                        {
+                            "weights": copy.deepcopy(self.model.get_weights()),
+                            "old_weights": copy.deepcopy(self.model.get_weights()),
+                            "weights_beta": beta_weights,
+                            "optimizer_state": copy.deepcopy(
+                                models.utils.dict_to_cpu(self.optimizer.state_dict())
+                            ),
+                        }
+                    )
+                else:
+                    # We don't make a beta update (weights_beta, old_weights) this round
+                    shared_storage.set_info.remote(
+                        {
+                            "weights": copy.deepcopy(self.model.get_weights()),
+                            "optimizer_state": copy.deepcopy(
+                                models.utils.dict_to_cpu(self.optimizer.state_dict())
+                            ),
+                        }
+                    )
                 if self.config.save_model:
                     shared_storage.save_checkpoint.remote()
             shared_storage.set_info.remote(

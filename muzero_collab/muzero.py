@@ -94,6 +94,7 @@ class MuZero:
         # Checkpoint and replay buffer used to initialize workers
         self.checkpoint = {
             "weights": None,
+            "old_weights": None,
             "weights_beta": None,
             "optimizer_state": None,
             "alpha_reward": 0,
@@ -123,6 +124,7 @@ class MuZero:
         cpu_actor = CPUActor.remote()
         cpu_weights = cpu_actor.get_initial_weights.remote(self.config)
         self.checkpoint["weights"], self.summary = copy.deepcopy(ray.get(cpu_weights))
+        self.checkpoint["old_weights"], self.summary = copy.deepcopy(ray.get(cpu_weights))
         self.checkpoint["weights_beta"], self.summary = copy.deepcopy(ray.get(cpu_weights))
 
         # Workers
