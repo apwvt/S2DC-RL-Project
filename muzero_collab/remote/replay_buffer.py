@@ -58,7 +58,7 @@ class ReplayBuffer:
     def get_buffer(self):
         return self.buffer
 
-    def get_batch(self):
+    def get_batch(self, mapname="empty"):
         index_batch = []
         observation_batch = []
         action_batch = []
@@ -69,7 +69,7 @@ class ReplayBuffer:
 
         weight_batch = [] if self.config.PER else None
 
-        for game_id, game_history, game_prob in self.sample_n_games(self.config.batch_size):
+        for game_id, game_history, game_prob in self.sample_n_games(self.config.batch_size, mapname=mapname):
             game_pos, pos_prob = self.sample_position(game_history)
 
             values, rewards, policies, actions = self.make_target(game_history, game_pos)
@@ -121,12 +121,17 @@ class ReplayBuffer:
 
         return game_id, self.buffer[game_id], game_prob
 
-    def sample_n_games(self, n_games, force_uniform=False):
+    def sample_n_games(self, n_games, mapname="empty", force_uniform=False):
         if self.config.PER and not force_uniform:
             game_id_list = []
             game_probs = []
 
             for game_id, game_history in self.buffer.items():
+                '''
+                if game_history.map != mapname:
+                    continue
+                '''
+
                 game_id_list.append(game_id)
                 game_probs.append(game_history.game_priority)
 
@@ -135,9 +140,18 @@ class ReplayBuffer:
 
             game_prob_dict = {game_id: prob for game_id, prob in zip(game_id_list, game_probs)}
 
-            selected_games = numpy.random.choice(game_id_list, n_games, p=game_probs) 
+            selected_games = numpy.random.choice(game_id_list, n_games, p=game_probs)
         else:
-            selected_games = numpy.random.choice(list(self.buffer.keys()), n_games)
+            avail_games = []
+            for game_id, game_history in self.buffer.items():
+                '''
+                if game_history.map != mapname:
+                    continue
+                '''
+
+                avail_games.append(game_id)
+
+            selected_games = numpy.random.choice(avail_games, n_games)
             game_prob_dict = {}
 
         ret = [(game_id, self.buffer[game_id], game_prob_dict.get(game_id)) for game_id in selected_games]

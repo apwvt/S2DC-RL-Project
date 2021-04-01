@@ -19,8 +19,8 @@ class SelfPlay:
 
     def __init__(self, initial_checkpoint, Game, config, seed):
         self.config = config
-        #self.game = Game(seed)
-        self.game = Game()
+
+        self.game_dict = Game()
 
         # Fix random generator seed
         numpy.random.seed(seed)
@@ -143,28 +143,29 @@ class SelfPlay:
         Play one game with actions based on the Monte Carlo tree search at each moves.
         """
 
-        assert self.game.agents is not None, 'MuZero implementation not refactored for single player games'
+        game_mapname = random.choice(list(self.game_dict.keys()))
+        game = self.game_dict[game_mapname]
 
         # choose which team the alpha model will control
         # TODO: add number of teams to config
         alpha_team = random.randint(0, 1)
 
-        observations = self.game.reset()
+        observations = game.reset()
 
-        game_histories = {agent: GameHistory(team=RED_TEAM if 'red' in agent else BLUE_TEAM) for agent in self.game.agents}
+        game_histories = {agent: GameHistory(team=RED_TEAM if 'red' in agent else BLUE_TEAM, mapname=game_mapname) for agent in game.agents}
 
         # appending initial values to agents' game histories
-        for agent in self.game.agents:
+        for agent in game.agents:
             game_histories[agent].action_history.append(0)
             game_histories[agent].observation_history.append(observations[agent])
             game_histories[agent].reward_history.append(0)
-            game_histories[agent].to_play_history.append(self.game.to_play())
+            game_histories[agent].to_play_history.append(game.to_play())
 
         done = False
         game_steps = 0
 
         if render:
-            self.game.render()
+            game.render()
 
         with torch.no_grad():
             while (not done) and (game_steps <= self.config.max_moves):
@@ -178,7 +179,7 @@ class SelfPlay:
                 # determine next action for every agent
                 actions = {}
                 roots = {}
-                for agent in self.game.agents:
+                for agent in game.agents:
                     game_history = game_histories[agent]
 
                     this_model = self.model if game_history.team == alpha_team else self.model_beta
@@ -186,12 +187,12 @@ class SelfPlay:
                     stacked_observations = game_history.get_stacked_observations(-1, self.config.stacked_observations)
 
                     # Choose the action
-                    if opponent == "self" or muzero_player == self.game.to_play():
+                    if opponent == "self" or muzero_player == game.to_play():
                         root, mcts_info = MCTS(self.config).run(
                             this_model,
                             stacked_observations,
-                            self.game.legal_actions(),
-                            self.game.to_play(),
+                            game.legal_actions(),
+                            game.to_play(),
                             True,
                         )
                         action = self.select_action(
@@ -206,74 +207,37 @@ class SelfPlay:
                         if render:
                             print(f'Tree depth: {mcts_info["max_tree_depth"]}')
                             print(
-                                f"Root value for player {self.game.to_play()}: {root.value():.2f}"
+                                f"Root value for player {game.to_play()}: {root.value():.2f}"
                             )
-                    else:
-                        action, root = self.select_opponent_action(
-                            opponent, stacked_observations
-                        )
 
                     actions[agent] = action
                     roots[agent] = root
 
-                observations, rewards, dones, infos = self.game.step(actions)
+                observations, rewards, dones, infos = game.step(actions)
 
                 # storing updates in each agent's game history
-                for agent in self.game.agents:
+                for agent in game.agents:
                     game_histories[agent].store_search_statistics(roots[agent], self.config.action_space)
                     game_histories[agent].action_history.append(actions[agent])
                     game_histories[agent].observation_history.append(observations[agent])
                     game_histories[agent].reward_history.append(rewards[agent])
-                    game_histories[agent].to_play_history.append(self.game.to_play())
+                    game_histories[agent].to_play_history.append(game.to_play())
 
                 # environment is done if all agents are done
-                done = not self.game.agents
+                done = not game.agents
                 game_steps += 1
 
                 if render:
-                    #print(f"Played action: {self.game.action_to_string(action)}")
-                    self.game.render()
+                    #print(f"Played action: {game.action_to_string(action)}")
+                    game.render()
 
         alpha_histories = [gh for gh in game_histories.values() if gh.team == alpha_team]
         beta_histories = [gh for gh in game_histories.values() if gh.team != alpha_team]
         return alpha_histories, beta_histories, game_steps
 
     def close_game(self):
-        self.game.close()
-
-    def select_opponent_action(self, opponent, stacked_observations):
-        """
-        Select opponent action for evaluating MuZero level.
-        """
-        if opponent == "human":
-            root, mcts_info = MCTS(self.config).run(
-                self.model,
-                stacked_observations,
-                self.game.legal_actions(),
-                self.game.to_play(),
-                True,
-            )
-            print(f'Tree depth: {mcts_info["max_tree_depth"]}')
-            print(f"Root value for player {self.game.to_play()}: {root.value():.2f}")
-            print(
-                f"Player {self.game.to_play()} turn. MuZero suggests {self.game.action_to_string(self.select_action(root, 0))}"
-            )
-            return self.game.human_to_action(), root
-        elif opponent == "expert":
-            return self.game.expert_agent(), None
-        elif opponent == "random":
-            assert (
-                self.game.legal_actions()
-            ), f"Legal actions should not be an empty array. Got {self.game.legal_actions()}."
-            assert set(self.game.legal_actions()).issubset(
-                set(self.config.action_space)
-            ), "Legal actions should be a subset of the action space."
-
-            return numpy.random.choice(self.game.legal_actions()), None
-        else:
-            raise NotImplementedError(
-                'Wrong argument: "opponent" argument should be "self", "human", "expert" or "random"'
-            )
+        for game in self.game_dict.values():
+            game.close()
 
     @staticmethod
     def select_action(node, temperature):
