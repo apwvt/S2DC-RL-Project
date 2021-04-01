@@ -143,7 +143,7 @@ class SelfPlay:
         Play one game with actions based on the Monte Carlo tree search at each moves.
         """
 
-        game_mapname = random.choice(self.game_dict.keys())
+        game_mapname = random.choice(list(self.game_dict.keys()))
         game = self.game_dict[game_mapname]
 
         # choose which team the alpha model will control

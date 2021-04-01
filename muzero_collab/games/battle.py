@@ -217,10 +217,10 @@ MAPS = {
 DEFAULT_MAX_CYCLES = 1000
 DEFAULT_KILL_REWARD = 5
 DEFAULT_MINIMAP_MODE = True
-DEFAULT_REWARD_ARGS = dict(step_reward=-0.005, dead_penalty=-0.1, attack_penalty=-0.1, attack_opponent_reward=0.2)
+DEFAULT_REWARD_ARGS = dict(step_reward=-0.005, dead_penalty=-0.1, attack_penalty=-0.1, attack_opponent_reward=0.35)
 
 
-def parallel_env(max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, map_layout=DEFAULT_MAP, **reward_args):
+def parallel_env(max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, **reward_args):
     env_reward_args = dict(**DEFAULT_REWARD_ARGS)
     env_reward_args.update(reward_args)
 

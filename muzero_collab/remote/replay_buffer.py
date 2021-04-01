@@ -127,8 +127,10 @@ class ReplayBuffer:
             game_probs = []
 
             for game_id, game_history in self.buffer.items():
+                '''
                 if game_history.map != mapname:
                     continue
+                '''
 
                 game_id_list.append(game_id)
                 game_probs.append(game_history.game_priority)
@@ -142,8 +144,10 @@ class ReplayBuffer:
         else:
             avail_games = []
             for game_id, game_history in self.buffer.items():
+                '''
                 if game_history.map != mapname:
                     continue
+                '''
 
                 avail_games.append(game_id)
 
