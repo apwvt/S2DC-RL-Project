@@ -20,7 +20,7 @@ class SelfPlay:
     def __init__(self, initial_checkpoint, Game, config, seed):
         self.config = config
 
-        self.game_dict = Game()
+        self.game_dict = { mp: Game(map_name=mp) for mp in self.config.training_maps }
 
         # Fix random generator seed
         numpy.random.seed(seed)
