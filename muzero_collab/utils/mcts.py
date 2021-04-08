@@ -69,6 +69,12 @@ class MCTS:
                 hidden_state,
             )
 
+        """
+        In training mode, random noise is added to the tree's value predictions in
+        order to encourage exploration; this allows the model to discover new strategies
+        instead of becoming 'stuck' on the first strategy that worked.  This functionality
+        is disabled during validation so the model plays as well as it knows how.
+        """
         if add_exploration_noise:
             root.add_exploration_noise(
                 dirichlet_alpha=self.config.root_dirichlet_alpha,
@@ -77,6 +83,12 @@ class MCTS:
 
         min_max_stats = MinMaxStats()
 
+        """
+        Because of the enormous size of the game tree, the number of nodes expanded is
+        deliberately limited.  Each node expanded adds information that is backpropagated
+        to the tree's root; thus, adding more simulations improves the quality of the
+        predictions at the cost of processing power.
+        """
         max_tree_depth = 0
         for _ in range(self.config.num_simulations):
             virtual_to_play = to_play
@@ -117,6 +129,7 @@ class MCTS:
                 hidden_state,
             )
 
+            # Reward backpropagation
             self.backpropagate(search_path, value, virtual_to_play, min_max_stats)
 
             max_tree_depth = max(max_tree_depth, current_tree_depth)
@@ -129,7 +142,7 @@ class MCTS:
 
     def select_child(self, node, min_max_stats):
         """
-        Select the child with the highest UCB score.
+        Select the child with the highest UCB (value + exploration bonus) score.
         """
         max_ucb = max(
             self.ucb_score(node, child, min_max_stats)
@@ -205,6 +218,9 @@ class MCTS:
 
 
 class Node:
+    """
+    Represents a single game state in the MCTS tree.
+    """
     def __init__(self, prior):
         self.visit_count = 0
         self.to_play = -1
@@ -218,6 +234,13 @@ class Node:
         return len(self.children) > 0
 
     def value(self):
+        """
+        Calculates the total value of downstream nodes divided
+        by the number of times this node was visited.
+
+        In effect, this is the average value we expect to recieve if this node becomes the
+        game state.
+        """
         if self.visit_count == 0:
             return 0
         return self.value_sum / self.visit_count
