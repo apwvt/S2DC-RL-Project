@@ -8,6 +8,11 @@ from pettingzoo.magent.battle_v2 import _parallel_env
 
 
 class MuZeroConfig:
+    """
+    Class to contain the default configuration options for the battle environment. Overrides can be made by passing a dictionary-like object 
+    to the MuZero constructor.
+    """
+
     def __init__(self):
         # More information is available here: https://github.com/werner-duvaud/muzero-general/wiki/Hyperparameter-Optimization
 
