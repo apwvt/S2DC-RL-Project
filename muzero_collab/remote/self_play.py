@@ -18,9 +18,13 @@ class SelfPlay:
     """
 
     def __init__(self, initial_checkpoint, Game, config, seed):
+        """
+        Set up this self play thread and its networks.
+        """
+
         self.config = config
 
-        self.game_dict = Game()
+        self.game_dict = { mp: Game(map_name=mp) for mp in self.config.training_maps }
 
         # Fix random generator seed
         numpy.random.seed(seed)
@@ -39,6 +43,13 @@ class SelfPlay:
         self.model_beta.eval()
 
     def continuous_self_play(self, shared_storage, replay_buffer, test_mode=False):
+        """
+        Main body of this self play worker thread: continuously plays games until
+        the program terminates or the training step limit is reached.
+
+        This function is also responsible for coordinating and recording training
+        metrics, such as mean reward and state value.
+        """
         while ray.get(
             shared_storage.get_info.remote("training_step")
         ) < self.config.training_steps and not ray.get(
@@ -140,7 +151,12 @@ class SelfPlay:
         self, temperature, temperature_threshold, render, opponent, muzero_player
     ):
         """
-        Play one game with actions based on the Monte Carlo tree search at each moves.
+        Play one game with actions based on the Monte Carlo tree search at each move.
+
+        Before moving, each agent runs a fixed number of steps of a Monte Carlo Tree Search
+        to approxmiate the value and reward of each of the 21 possible actions.  The best
+        move found through this process (with a fuzz factor for exploration) becomes the agent's
+        actual move.
         """
 
         game_mapname = random.choice(list(self.game_dict.keys()))
@@ -236,6 +252,9 @@ class SelfPlay:
         return alpha_histories, beta_histories, game_steps
 
     def close_game(self):
+        """
+        Clean up the game environments when this program is closing.
+        """
         for game in self.game_dict.values():
             game.close()
 

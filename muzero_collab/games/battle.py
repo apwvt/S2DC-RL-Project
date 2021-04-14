@@ -8,6 +8,11 @@ from pettingzoo.magent.battle_v2 import _parallel_env
 
 
 class MuZeroConfig:
+    """
+    Class to contain the default configuration options for the battle environment. Overrides can be made by passing a dictionary-like object 
+    to the MuZero constructor.
+    """
+
     def __init__(self):
         # More information is available here: https://github.com/werner-duvaud/muzero-general/wiki/Hyperparameter-Optimization
 
@@ -221,15 +226,11 @@ DEFAULT_MINIMAP_MODE = True
 DEFAULT_REWARD_ARGS = dict(step_reward=-0.005, dead_penalty=-0.1, attack_penalty=-0.1, attack_opponent_reward=0.35)
 
 
-def parallel_env(max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, **reward_args):
+def parallel_env(max_cycles=DEFAULT_MAX_CYCLES, minimap_mode=DEFAULT_MINIMAP_MODE, map_name="empty", **reward_args):
     env_reward_args = dict(**DEFAULT_REWARD_ARGS)
     env_reward_args.update(reward_args)
 
-    envs = {}
-    for map_name in MAPS:
-        envs[map_name] = BattleEnv(minimap_mode, env_reward_args, max_cycles, MAPS[map_name])
-
-    return envs
+    return BattleEnv(minimap_mode, env_reward_args, max_cycles, MAPS[map_name])
 
 class BattleEnv(_parallel_env):
     """Custom Battle Environment that allows for modification of the map through a configuration

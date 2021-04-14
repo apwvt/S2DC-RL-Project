@@ -17,6 +17,9 @@ class Trainer:
     """
 
     def __init__(self, initial_checkpoint, config):
+        """
+        Setup the Trainer by setting random seeds, initializing models from storage, and configuring optimizers.
+        """
         self.config = config
 
         # Fix random generator seed
@@ -60,17 +63,25 @@ class Trainer:
             )
 
     def continuous_update_weights(self, replay_buffer, shared_storage):
+        """
+        Continuously loop performing training steps to update the models with examples pulled from the Replay Buffer
+        """
         # Wait for the replay buffer to be filled
         while ray.get(shared_storage.get_info.remote("num_played_games")) < 1:
             time.sleep(0.1)
 
         next_batch = replay_buffer.get_batch.remote(mapname=random.choice(self.config.training_maps))
+
         # Training loop
         while self.training_step < self.config.training_steps and not ray.get(
             shared_storage.get_info.remote("terminate")
         ):
+
+            # get the batch to train on
             index_batch, batch = ray.get(next_batch)
             next_batch = replay_buffer.get_batch.remote(mapname=random.choice(self.config.training_maps))
+
+            # update the learning rate and model weights
             self.update_lr()
             (
                 priorities,
@@ -161,7 +172,10 @@ class Trainer:
         target_value_scalar = numpy.array(target_value, dtype="float32")
         priorities = numpy.zeros_like(target_value_scalar)
 
+        # get device being used for training
         device = next(self.model.parameters()).device
+
+        # create the tensors from batch and adjust as needed
         if self.config.PER:
             weight_batch = torch.tensor(weight_batch.copy()).float().to(device)
         observation_batch = torch.tensor(observation_batch).float().to(device)
@@ -309,7 +323,10 @@ class Trainer:
         target_reward,
         target_policy,
     ):
-        # Cross-entropy seems to have a better convergence than MSE
+        """
+        Calculate the loss based on the input.
+        Cross-entropy seems to have a better convergence than MSE (according to author)
+        """
         value_loss = (-target_value * torch.nn.LogSoftmax(dim=1)(value)).sum(1)
         reward_loss = (-target_reward * torch.nn.LogSoftmax(dim=1)(reward)).sum(1)
         policy_loss = (-target_policy * torch.nn.LogSoftmax(dim=1)(policy_logits)).sum(1)

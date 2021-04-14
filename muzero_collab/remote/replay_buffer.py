@@ -25,6 +25,9 @@ class ReplayBuffer:
         numpy.random.seed(self.config.seed)
 
     def save_game(self, game_history, shared_storage=None):
+        """
+        Add a new game to the replay buffer.
+        """
         if self.config.PER:
             if game_history.priorities is not None:
                 # Avoids read-only access on array when loading from disk
@@ -59,6 +62,11 @@ class ReplayBuffer:
         return self.buffer
 
     def get_batch(self, mapname="empty"):
+        """
+        Generate a batch of moves for use by the trainer, preferring to select moves weighted highly
+        by prioritized replay.  Note that this produces batch_size individual moves, not full game
+        histories.
+        """
         index_batch = []
         observation_batch = []
         action_batch = []
@@ -103,6 +111,9 @@ class ReplayBuffer:
                 )
 
     def sample_game(self, force_uniform=False):
+        """
+        Choose a random game, optionally preferring one with a high PER score.
+        """
         game_prob = None
 
         if self.config.PER and not force_uniform:
@@ -122,6 +133,9 @@ class ReplayBuffer:
         return game_id, self.buffer[game_id], game_prob
 
     def sample_n_games(self, n_games, mapname="empty", force_uniform=False):
+        """
+        Sample N games, optionally preferring those with a high PER score.
+        """
         if self.config.PER and not force_uniform:
             game_id_list = []
             game_probs = []
@@ -158,6 +172,11 @@ class ReplayBuffer:
         return ret
 
     def sample_position(self, game_history, force_uniform=False):
+        """
+        Given a game history, sample a single move.
+
+        If PER is enabled, the algorithm will prefer moves with a high PER score.
+        """
         position_prob = None
 
         if self.config.PER and not force_uniform:
@@ -170,12 +189,18 @@ class ReplayBuffer:
         return position_index, position_prob
 
     def update_game_history(self, game_id, game_history):
+        """
+        Part of Reanalyze - update a game history in place
+        """
         if next(iter(self.buffer)) <= game_id:
             if self.config.PER:
                 game_history.priorities = numpy.copy(game_history.priorities)
             self.buffer[game_id] = game_history
 
     def update_priorities(self, priorities, index_info):
+        """
+        Part of Reanalyze - apply a batch of updated PER priorities
+        """
         for i in range(len(index_info)):
             game_id, game_pos = index_info[i]
 
@@ -189,6 +214,12 @@ class ReplayBuffer:
                 self.buffer[game_id].game_priority = numpy.max(self.buffer[game_id].priorities)
 
     def compute_target_value(self, game_history, index):
+        """
+        Part of PER (Prioritized Experience Replay); assigns a bonus weighting to
+        explorative moves, or moves where the model chose something other than the choice
+        with the apparent highest value and ultimately did better than projected.  Training
+        on these moves is the key to developming new strategies.
+        """
         bootstrap_index = index + self.config.td_steps
         value = 0
 
@@ -217,6 +248,10 @@ class ReplayBuffer:
         return value
 
     def make_target(self, game_history, state_index):
+        """
+        Decompose a game history into its values, rewards, policy, and actions taken.
+        Used when creating batches to send to the trainer.
+        """
         target_values, target_rewards, target_policies, actions = [], [], [], []
 
         for current_index in range(state_index, state_index + self.config.num_unroll_steps + 1):

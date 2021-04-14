@@ -39,3 +39,11 @@ package locally.__
 __When running the code in temporary environments (Docker Containers, Google Collab Notebooks, etc.), this line
 will need to be run with each new instance.__
 
+### Docker Container
+The code can be run a Docker container using the latest PyTorch image and Docker installed with GPU pass-through. 
+Running the following command from the project's root directory will mount the source code into `/code` within the 
+container. Upon entering the container, be sure to run the `pip install -e .` command to set up the local installation.
+To prevent the container from being deleted to save space when possible, remove the `--rm` flag.
+
+    docker run --gpus all --rm -it -v $(pwd):/code nvcr.io/nvidia/pytorch:21.03-py3
+
