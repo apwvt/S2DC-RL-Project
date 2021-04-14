@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import torch
 from tqdm import tqdm
 
-from muzero_collab.games.battle import parallel_env, MuZeroConfig
+from muzero_collab.games.battle import parallel_env, MuZeroConfig, MAPS
 from muzero_collab.models import MuZeroNetwork
 from muzero_collab.utils import GameHistory, MCTS
 from muzero_collab.utils.constants import RED_TEAM, BLUE_TEAM
@@ -44,7 +44,7 @@ def select_action(config, model, stacked_observations, env):
     return action
 
 
-def make_gif(checkpoint_file, output_folder, filename=None, fps=50):
+def make_gif(checkpoint_file, output_folder, map='empty', filename=None, fps=50):
 
     config = MuZeroConfig()
 
@@ -101,6 +101,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', default=None, help='Folder to save generated gif file(s) to (Default: <checkpoint folder>/gifs)')
     parser.add_argument('--filename', default=None, help='Filename for output gif (Default: checkpoint filename)')
     parser.add_argument('--fps', type=int, default=50, help='Frames per second of gif (Default: 50)')
+    parser.add_argument('--map', default='empty', choices=MAPS.keys(), help='Map to generate gif in (Default: empty)')
 
     args = parser.parse_args()
 

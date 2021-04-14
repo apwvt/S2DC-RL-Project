@@ -37,8 +37,8 @@ def main(args):
         filename = copy(args.experiment, src_file=args.filename, verbose=args.no_verbose)
 
         if args.gifs:
-            gif_filename = filename.split['.'][0]
-            mg.make_gif(os.path.join(args.experiment, filename), os.path.join(args.experiment, 'gifs'), filename=gif_filename, fps=25)
+            gif_filename = filename.split('/')[-1].split('.')[0]
+            mg.make_gif(filename, os.path.join(args.experiment, 'gifs'), map=args.map, filename=gif_filename, fps=25)
 
 
     # scheduling the function to occur at given frequency
@@ -73,9 +73,6 @@ if __name__ == '__main__':
     parser.add_argument('--no-verbose', action='store_false', help='Turn off print statements')
 
     args = parser.parse_args()
-
-    if args.map != 'empty':
-        print('WARNING: --map flag currently not implmemented')
 
     main(args)
 
