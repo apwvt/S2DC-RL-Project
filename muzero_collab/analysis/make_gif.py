@@ -54,7 +54,7 @@ def make_gif(checkpoint_file, output_folder, map='empty', filename=None, fps=50)
     model.set_weights(checkpoint['weights'])
     model.to(torch.device('cuda'))
 
-    env = parallel_env()
+    env = parallel_env(map_name=map)
 
     observations = env.reset()
     frames = []
@@ -125,9 +125,9 @@ if __name__ == '__main__':
         print('Generating gifs now...')
 
         for checkpoint_file in tqdm(checkpoint_files):
-            make_gif(checkpoint_file, args.output, filename=args.filename, fps=args.fps)
+            make_gif(checkpoint_file, args.output, filename=args.filename, fps=args.fps, map=args.map)
 
     else:
         print(f'Generating file for {args.checkpoint}...')
 
-        make_gif(args.checkpoint, args.output, filename=args.filename, fps=args.fps)
+        make_gif(args.checkpoint, args.output, filename=args.filename, fps=args.fps, map=args.map)
