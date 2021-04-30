@@ -3,6 +3,12 @@ import torch
 from .abstract import AbstractNetwork
 from .mlp import mlp
 
+"""
+The residual network is the second network option for MuZero, with
+the other being fully connected.  This code is entirely from the upstream
+and we made no use of it; it is left here for completeness' sake.
+"""
+
 def conv3x3(in_channels, out_channels, stride=1):
     return torch.nn.Conv2d(
         in_channels, out_channels, kernel_size=3, stride=stride, padding=1, bias=False
@@ -416,4 +422,4 @@ class MuZeroResidualNetwork(AbstractNetwork):
     def recurrent_inference(self, encoded_state, action):
         next_encoded_state, reward = self.dynamics(encoded_state, action)
         policy_logits, value = self.prediction(next_encoded_state)
-        return value, reward, policy_logits, next_encoded_state 
+        return value, reward, policy_logits, next_encoded_state
