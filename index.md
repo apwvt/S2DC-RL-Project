@@ -1,37 +1,13 @@
-## Welcome to GitHub Pages
+## Overview
 
-You can use the [editor on GitHub](https://github.com/apwvt/S2DC-RL-Project/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+The past few years have seen an explosion of applications of Single-Agent and Multi-Agent Reinforcement Learning over fields ranging from board games to drone control to social interaction.  One of the new architectures deployed to meet this emerging need is MuZero, which broke new ground in single-agent environments such as Chess and Go.  However, previous work has not attempted to adapt MuZero to games with more than one agent on each team.
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+To evaluate the suitability of MuZero for this family of applications, we spent our semester data-centric computing project adapting the algorithm for multi-agent games.  Beginning with the general MuZero implementation by [Duvaud and Hainaut](https://github.com/werner-duvaud/muzero-general), we modified parts of the algorithm's structure, particularly the Monte-Carlo Tree Search implementation, in a way that allowed for the efficient prediction of multiple agent actions.  We then trained a single model to play a six-on-six adversarial game derived from [PettingZoo's MAgent package](https://www.pettingzoo.ml/magent/battle) over ~35k training steps.
 
-### Markdown
+### Results
+While the algorithm did learn to play the game, the level of strategic sophistication displayed was less than anticipated.  In particular, the MuZero model appeared to perform worse than comparable deep reinforcement learning algorithms over comparable training times, with agents only occasionally making progress in their task (dealing enough damage to score a kill) before the scenario hit its step limit.
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+Overall, we were forced to conclude that multi-agent MuZero is not an improvement on present multi-agent reinforcment learning algorithms.
 
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
-```
-
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
-
-### Jekyll Themes
-
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/apwvt/S2DC-RL-Project/settings/pages). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
-
-### Support or Contact
-
-Having trouble with Pages? Check out our [documentation](https://docs.github.com/categories/github-pages-basics/) or [contact support](https://support.github.com/contact) and we’ll help you sort it out.
+### Future Work
+We leave to future work a number of avenues for exploration.  Given our limited access to computing hardware, we deliberately chose very small network and batch sizes; our model may simply be underpowered for the environment we chose.  In particular, the small size of the encoded state used in the initial and recurrent inferences is a suspected bottleneck in model learning capacity.  We also found that the agents' behavior was greatly affected by the reward structure, and had to experiment with several reward schemes to find one that would not regress to degenerate strategies; there may exist a reward structure that produces better team-based performance with the same architecture, possibly by rewarding the agents as a group.
