@@ -4,7 +4,7 @@ The past few years have seen an explosion of applications of Single-Agent and Mu
 
 To evaluate the suitability of MuZero for this family of applications, we spent our semester data-centric computing project adapting the algorithm for multi-agent games.  Beginning with the general MuZero implementation by [Duvaud and Hainaut](https://github.com/werner-duvaud/muzero-general), we modified parts of the algorithm's structure, particularly the Monte-Carlo Tree Search implementation, in a way that allowed for the efficient prediction of multiple agent actions.  We then trained a single model to play a six-on-six adversarial game derived from [PettingZoo's MAgent package](https://www.pettingzoo.ml/magent/battle) over ~35k training steps.
 
-https://user-images.githubusercontent.com/57198618/117064489-43894780-acf4-11eb-9e22-52eb03831aa0.mp4
+<video src="https://user-images.githubusercontent.com/57198618/117064489-43894780-acf4-11eb-9e22-52eb03831aa0.mp4" controls preload></video>
 
 ### Results
 While the algorithm did learn to play the game, the level of strategic sophistication displayed was less than anticipated.  In particular, the MuZero model appeared to perform worse than comparable deep reinforcement learning algorithms over comparable training times, with agents only occasionally making progress in their task (dealing enough damage to score a kill) before the scenario hit its step limit.
